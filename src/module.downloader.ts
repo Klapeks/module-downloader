@@ -4,6 +4,7 @@ import { parseFile } from './parser';
 import axios from 'axios';
 import archiveUtils from './archive.utils';
 import { IncomingMessage } from 'http';
+import { spawn } from 'child_process';
 
 (process.env as any)['NODE_TLS_REJECT_UNAUTHORIZED'] = 0;
 
@@ -28,6 +29,9 @@ export async function downloadModule(module: ModuleInfo, output: string) {
     if (fs.existsSync(output)) {
         console.log("Module already downloaded:", output);
         return;
+    }
+    if (fs.lstatSync(output)?.isSymbolicLink()) {
+        fs.rmSync(output);
     }
     fs.mkdirSync(output, { recursive: true });
     console.log("Loading module...", module);
