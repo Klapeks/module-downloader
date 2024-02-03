@@ -12,7 +12,8 @@ export interface ModuleInfo {
     module: string,
     link: string,
     token: string,
-    header: string   
+    header: string,
+    replace?: string
 }
 
 async function streamToData(stream: IncomingMessage) {
@@ -24,15 +25,19 @@ async function streamToData(stream: IncomingMessage) {
     })
 }
 
-export async function downloadModule(module: ModuleInfo, output: string) {
-    output = mPath.join(process.cwd(), output, module.module);
+
+export async function downloadModule(module: ModuleInfo, outputFolder: string) {
+    const output = mPath.join(process.cwd(), outputFolder, module.module);
     if (fs.existsSync(output)) {
         console.log("Module already downloaded:", output);
         return;
     }
-    if (fs.lstatSync(output)?.isSymbolicLink()) {
-        fs.rmSync(output);
-    }
+    try {
+        if (fs.lstatSync(output)?.isSymbolicLink()) {
+            fs.rmSync(output);
+        }
+    } catch(err) {}
+
     fs.mkdirSync(output, { recursive: true });
     console.log("Loading module...", module);
     try {
@@ -60,6 +65,47 @@ export async function downloadModule(module: ModuleInfo, output: string) {
 
         console.log("Unzipped:", uzres.folder);
         fs.rmSync(zipFile, { force: true });
+        if (module.replace) {
+            console.log("Module", module.replace, 'will be replaced by', module.module);
+            const replace = mPath.join(process.cwd(), outputFolder, module.replace);
+            fs.rmSync(replace, { force: true, recursive: true });
+            fs.renameSync(output, replace);
+
+            const _replaceAll = (filePath: string, from: string, to: string) => {
+                filePath = mPath.join(replace, filePath);
+                if (!fs.existsSync(filePath)) return;
+                let data = fs.readFileSync(filePath).toString();
+                while (data.includes(from)) data = data.replace(from, to);
+                fs.writeFileSync(filePath, data);
+            }
+            _replaceAll('package.json', module.module, module.replace);
+            _replaceAll('package-lock.json', module.module, module.replace);
+            console.log("Module", module.replace, 'replaced by', module.module);
+        }
+        // await new Promise<void>((resolve, reject) => {
+        //     // console.log("NOfbiuowjpogk", process.cwd());
+        //     // console.log(JSON.parse(fs.readFileSync(mPath.join(uzres.folder,'package.json')).toString()))
+        //     // console.log("spawning npm::", ['install', '--prefix', process.cwd(), uzres.folder]);
+        //     // const p = spawn("npm", ['install', '--prefix', process.cwd(), uzres.folder], {
+        //     const p = spawn("npm", ['install'], {
+        //         cwd: uzres.folder
+        //     });
+        //     console.log("spawning process::", p.pid);
+        //     p.stdout.setEncoding('utf8');
+        //     p.stdout.on('data', (data) => {
+        //         console.log('[npm install]', data);
+        //     });
+        //     p.stderr.setEncoding('utf8');
+        //     p.stderr.on('data', (data) => {
+        //         console.error('[npm i err]', data);
+        //     });
+        //     p.on('error', (err) => reject(err));
+        //     p.on('close', () => resolve());
+        //     p.on('exit', () => resolve());
+        // });
+        // fs.rmSync(mPath.join(uzres.folder, 'node_modules'), {
+        //     force: true, recursive: true 
+        // });
     }
     catch (err: any) {
         try {
