@@ -28,9 +28,18 @@ function envChange(str: string) {
     return str;
 }
 
+function _parseJsonFile(path: string): LoaderFile {
+    let json = JSON.parse(fs.readFileSync(path).toString());
+    if ('moduleDownloaderConfig' in json) {
+        json = json.moduleDownloaderConfig;
+    }
+    return json;
+}
+
 export function parseFile(path: string) {
     path = mPath.resolve(process.cwd(), path);
-    const file = JSON.parse(fs.readFileSync(path).toString()) as LoaderFile;
+    const file = _parseJsonFile(path);
+    
     file['load-env-from'] = envChange(file['load-env-from']);
     dotenv.config({ path: file['load-env-from'] });
 
