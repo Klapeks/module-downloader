@@ -6,26 +6,30 @@ dotenv.config();
 const env = process.env as any;
 
 export interface LoaderFile {
-    'load-env-from': string,
+    'load-env-from': string | string[],
     'export-to': string,
     modules: ModuleInfo[]
 }
-function envChange(str: string) {
-    if (str.startsWith('env.')) {
-        str = str.substring(4);
-        if (env[str]) return env[str];
-        throw new Error(`No ${str} in .env`);
-    }
-    while (str.includes('{env.')) {
-        let ee = str.split("{env.")[1]?.split('}')[0];
-        if (!ee) throw new Error("Invalid parse")
-        if (!env[ee]) throw new Error(`No ${ee} in .env`);
-        if (!str.includes('{env.'+ee+'}')) {
-            throw new Error("Invalid parse")
+function envChange(paths: string | string[]) {
+    if (typeof paths == 'string') paths = [paths];
+    for (let str of paths) {
+        if (str.startsWith('env.')) {
+            str = str.substring(4);
+            if (env[str]) return env[str];
+            throw new Error(`No ${str} in .env`);
         }
-        str = str.replace('{env.'+ee+'}', env[ee]);
+        while (str.includes('{env.')) {
+            let ee = str.split("{env.")[1]?.split('}')[0];
+            if (!ee) throw new Error("Invalid parse")
+            if (!env[ee]) throw new Error(`No ${ee} in .env`);
+            if (!str.includes('{env.'+ee+'}')) {
+                throw new Error("Invalid parse")
+            }
+            str = str.replace('{env.'+ee+'}', env[ee]);
+        }
+        if (fs.existsSync(str)) return str;
     }
-    return str;
+    throw ".env file not found";
 }
 
 function _parseJsonFile(path: string): LoaderFile {
